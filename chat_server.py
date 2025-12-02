@@ -1,8 +1,3 @@
-"""
-Created on Tue Jul 22 00:47:05 2014
-
-@author: alina, zzhang
-"""
 
 import time
 import socket
@@ -33,10 +28,29 @@ class Server:
         self.indices = {}
         # sonnet
         self.sonnet = indexer.PIndex("AllSonnets.txt")
+        # logging callback
+        self.log_callback = None
+    
+    def set_log_callback(self, callback):
+        """Set a callback function for logging
+        The callback should accept a single string parameter (the log message)
+        """
+        self.log_callback = callback
+    
+    def log(self, message):
+        """Log a message to the configured log callback or print to console"""
+        timestamp = time.strftime("%H:%M:%S", time.localtime())
+        log_message = f"[{timestamp}] {message}"
+        
+        if self.log_callback:
+            self.log_callback(log_message)
+        else:
+            print(log_message)
 
     def new_client(self, sock):
         # add to all sockets and to new clients
-        print('new client...')
+        client_addr = sock.getpeername()
+        self.log(f'New client connected: {client_addr[0]}:{client_addr[1]}')
         sock.setblocking(0)
         self.new_clients.append(sock)
         self.all_sockets.append(sock)
@@ -64,16 +78,16 @@ class Server:
                                     open(name + '.idx', 'rb'))
                             except IOError:  # chat index does not exist, then create one
                                 self.indices[name] = indexer.Index(name)
-                        print(name + ' logged in')
+                        self.log(f'User logged in: {name}')
                         self.group.join(name)
                         mysend(sock, json.dumps(
                             {"action": "login", "status": "ok"}))
                     else:  # a client under this name has already logged in
                         mysend(sock, json.dumps(
                             {"action": "login", "status": "duplicate"}))
-                        print(name + ' duplicate login attempt')
+                        self.log(f'Duplicate login attempt: {name}')
                 else:
-                    print('wrong code received')
+                    self.log('Warning: Invalid message format received')
             else:  # client died unexpectedly
                 self.logout(sock)
         except:
@@ -182,10 +196,10 @@ class Server:
                 # ---- start your code ---- #
                 poem_indx=int(msg["target"])
                 from_name=self.logged_sock2name[from_sock]
-                print(from_name + ' asks for',poem_indx)
-                poem=self.sonnet.get_poem(poem_indx)
-                poem='\n'.join(poem).strip()
-                print('here:\n', poem)
+                self.log(f'Poem requested by {from_name}: {poem_indx}')
+                poem = self.sonnet.get_poem(poem_indx)
+                poem = '\n'.join(poem).strip()
+                self.log(f'Sending poem {poem_indx} to {from_name}')
 
 
 
